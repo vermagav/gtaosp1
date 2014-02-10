@@ -3,44 +3,6 @@
 
 #include "gtthread.c"
 
-#include <stdlib.h>
-#include <sys/queue.h>
-#include <ucontext.h>
-
-/* Timeslice for each thread's execution */
-long gtthread_period = -1;
-/* Maintain a globajl thread count */
-int gtthread_count = 0;
-/* Used for assigning new thread IDs, this never decrements */
-int gtthread_id = 0;
-/* Stack size for each context */
-const int CONTEXT_MAX = 8192; // 8 KB
-/* Overarching context used by main() */
-ucontext_t main_context;
-/* The head of the queue that holds our threads */
-// @Citation: Usage of TAILQ inspired from http://blog.jasonish.org/2006/08/tailq-example.html
-TAILQ_HEAD(, struct gtthread_t) queue_head;
-
-
-
-/* A single thread's data structure */
-struct gtthread_t {
-	// Thread ID
-	int tid;
-	
-	// Function that it points to with its arguments (NULL if none)
-	void *(*start_routine)(void *);
-	void *arg;
-
-	// Context for this thread, used while switching
-	ucontext_t *context;
-
-	// Pointer macro used by TAILQ queue implemenetation
-	TAILQ_ENTRY(struct gtthread_t) entries;
-};
-
-
-
 /* Must be called before any of the below functions. Failure to do so may
  * result in undefined behavior. 'period' is the scheduling quantum (interval)
  * in microseconds (i.e., 1/1000000 sec.). */
