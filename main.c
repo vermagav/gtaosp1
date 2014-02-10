@@ -1,7 +1,7 @@
 #include "gtthread.h"
 
 void testPrint() {
-	printf("Hello from test thread!");
+	printf("Hello from the thread!\n");
 }
 
 int main(int argc, char **argv) {
@@ -11,8 +11,6 @@ int main(int argc, char **argv) {
 
 	struct gtthread_t test1;
 
-	gtthread_create(&test1, testPrint, 0);
-	gtthread_create(&test1, testPrint, 0);
 	gtthread_create(&test1, testPrint, 0);
 	gtthread_create(&test1, testPrint, 0);
 	gtthread_create(&test1, testPrint, 0);

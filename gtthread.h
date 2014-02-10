@@ -10,12 +10,12 @@ void gtthread_init(long period);
 
 /* see man pthread_create(3); the attr parameter is omitted, and this should
  * behave as if attr was NULL (i.e., default attributes) */
-int  gtthread_create(struct gtthread_t *thread,
+int  gtthread_create(gtthread_t *thread,
                      void *(*start_routine)(void *),
                      void *arg);
 
 /* see man pthread_join(3) */
-int  gtthread_join(struct gtthread_t thread, void **status);
+int  gtthread_join(gtthread_t thread, void **status);
 
 /* gtthread_detach() does not need to be implemented; all threads should be
  * joinable */
@@ -27,14 +27,14 @@ void gtthread_exit(void *retval);
 int gtthread_yield(void);
 
 /* see man pthread_equal(3) */
-int  gtthread_equal(struct gtthread_t t1, struct gtthread_t t2);
+int  gtthread_equal(gtthread_t t1, gtthread_t t2);
 
 /* see man pthread_cancel(3); but deferred cancelation does not need to be
  * implemented; all threads are canceled immediately */
-int  gtthread_cancel(struct gtthread_t thread);
+int  gtthread_cancel(gtthread_t thread);
 
 /* see man pthread_self(3) */
-struct gtthread_t gtthread_self(void);
+gtthread_t gtthread_self(void);
 
 
 /* see man pthread_mutex(3); except init does not have the mutexattr parameter,
