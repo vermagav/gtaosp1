@@ -1,7 +1,7 @@
 #ifndef __GTTHREAD_H
 #define __GTTHREAD_H
 
-#define _XOPEN_SOURCE 600
+#include "gtthread.c"
 
 #include <stdlib.h>
 #include <sys/queue.h>
@@ -19,7 +19,7 @@ const int CONTEXT_MAX = 8192; // 8 KB
 ucontext_t main_context;
 /* The head of the queue that holds our threads */
 // @Citation: Usage of TAILQ inspired from http://blog.jasonish.org/2006/08/tailq-example.html
-TAILQ_HEAD(, gtthread_t) queue_head;
+TAILQ_HEAD(, struct gtthread_t) queue_head;
 
 
 
@@ -36,7 +36,7 @@ struct gtthread_t {
 	ucontext_t *context;
 
 	// Pointer macro used by TAILQ queue implemenetation
-	TAILQ_ENTRY(gtthread_t) entries;
+	TAILQ_ENTRY(struct gtthread_t) entries;
 };
 
 

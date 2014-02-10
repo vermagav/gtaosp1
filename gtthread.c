@@ -4,7 +4,7 @@
 void gtthread_init(long period) {
 	gtthread_period = period;
 	TAILQ_INIT(&queue_head);
-	printf("gtthread initialized"); // TODO: remove
+	printf("gtthread initialized\n"); // TODO: remove
 }
 
 /* Spawn a new thread and add it to the queue */
@@ -12,7 +12,7 @@ int gtthread_create(struct gtthread_t *thread,
                     void *(*start_routine)(void *),
                     void *arg) {
 	// Allocate memory for thread
-	thread = malloc(sizeof(*thread));
+	thread = (struct gtthread_t*)malloc(sizeof(struct gtthread_t));
 	
 	// Populate it
 	thread->start_routine = start_routine;
@@ -44,11 +44,14 @@ int gtthread_create(struct gtthread_t *thread,
 
 
 void gtthread_exit(void *retval) {
+	// Temporary accessor variables
+	struct gtthread_t *thread = TAILQ_FIRST(&queue_head);
+	struct gtthread_t *temp = TAILQ_NEXT(thread, entries);
+	
 	// Switch context to the next item in the queue
-
+	setcontext(temp->context);
 
 	// Delete the current thread (head) from the queue
-	struct gtthread_t *thread = TAILQ_FIRST(&queue_head);
 	TAILQ_REMOVE(&queue_head, thread, entries);
 	free(thread);
 }
