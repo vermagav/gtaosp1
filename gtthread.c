@@ -4,6 +4,8 @@
 #include <sys/queue.h>
 #include <ucontext.h>
 
+#define _XOPEN_SOURCE 600 // TODO: remove
+
 /* A single thread's data structure */
 struct gtthread_t {
 	// Thread ID
