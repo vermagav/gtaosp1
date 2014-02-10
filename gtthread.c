@@ -1,12 +1,17 @@
 #include "gtthread.h"
 
+#define _XOPEN_SOURCE 600 // TODO: remove
+
 #include <stdlib.h>
 #include <sys/queue.h>
 #include <ucontext.h>
 
-#define _XOPEN_SOURCE 600 // TODO: remove
 
-/* A single thread's data structure */
+/**********************************
+ * A single thread's data structure
+ **********************************/
+
+
 struct gtthread_t {
 	// Thread ID
 	int tid;
@@ -23,28 +28,45 @@ struct gtthread_t {
 };
 
 
-/* Timeslice for each thread's execution */
+/*******************************************
+ * Global variables used throughout gtthread
+ *******************************************/
+
+
+// Timeslice for each thread's execution
 long gtthread_period = -1;
-/* Maintain a globajl thread count */
+// Maintain a globajl thread count
 int gtthread_count = 0;
-/* Used for assigning new thread IDs, this never decrements */
+// Used for assigning new thread IDs, this never decrements
 int gtthread_id = 0;
-/* Stack size for each context */
-const int CONTEXT_MAX = 8192; // 8 KB
-/* Overarching context used by main() */
+// Stack size of 8 KB for each context
+const int CONTEXT_MAX = 8192;
+// Overarching context used by main()
 ucontext_t main_context;
-/* The head of the queue that holds our threads */
+// The head of the queue that holds our threads
 // @Citation: Usage of TAILQ inspired from http://blog.jasonish.org/2006/08/tailq-example.html
 TAILQ_HEAD(, gtthread_t) queue_head;
 
-/* Initialize gtthread */
+
+/***********************************
+ * Function definitions for gtthread
+ ***********************************/
+
+
+// This is a debugging function
+void gtthread_print_all() {
+    struct gtthread_t *thread;
+    TAILQ_FOREACH(thread, &queue_head, entries) {
+            printf("Thread found with id: %d\n", thread->tid);
+    }
+}
+
 void gtthread_init(long period) {
 	gtthread_period = period;
 	TAILQ_INIT(&queue_head);
 	printf("gtthread initialized\n"); // TODO: remove
 }
 
-/* Spawn a new thread and add it to the queue */
 int gtthread_create(struct gtthread_t *thread,
                     void *(*start_routine)(void *),
                     void *arg) {
@@ -57,11 +79,14 @@ int gtthread_create(struct gtthread_t *thread,
 	thread->tid = gtthread_id++;
 	gtthread_count++;
 
+	// Create context for this thread of specified size
+	ucontext_t new_context;
+	thread->context = &new_context;
+
 	if(getcontext(thread->context) == -1) {
 		perror("Error: getcontext() failed to get context!");
 	}
 
-	// Create context for this thread of specified size
 	char stack_size[CONTEXT_MAX];
 	thread->context->uc_stack.ss_sp = stack_size;
 	thread->context->uc_stack.ss_size = sizeof(stack_size);
@@ -78,7 +103,6 @@ int gtthread_create(struct gtthread_t *thread,
 	// Return 0 on success as per pthread man page
 	return 0;
 }
-
 
 void gtthread_exit(void *retval) {
 	// Temporary accessor variables

@@ -12,6 +12,12 @@ int main(int argc, char **argv) {
 	struct gtthread_t test1;
 
 	gtthread_create(&test1, testPrint, 0);
+	gtthread_create(&test1, testPrint, 0);
+	gtthread_create(&test1, testPrint, 0);
+	gtthread_create(&test1, testPrint, 0);
+	gtthread_create(&test1, testPrint, 0);
+
+	gtthread_print_all();
 
 	// TODO
 
