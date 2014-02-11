@@ -36,6 +36,10 @@ int  gtthread_cancel(gtthread_t thread);
 /* see man pthread_self(3) */
 gtthread_t gtthread_self(void);
 
+/* A swapping/scheduling function that swaps context from the head to the
+ * next item in the queue, and then moves the head to the tail */
+void gtthread_next(void);
+
 
 /* see man pthread_mutex(3); except init does not have the mutexattr parameter,
  * and should behave as if mutexattr is NULL (i.e., default attributes); also,

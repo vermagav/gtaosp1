@@ -1,22 +1,23 @@
 #include "gtthread.h"
 
-void testPrint() {
+void *testPrint() {
 	printf("Hello from the thread!\n");
 }
 
 int main(int argc, char **argv) {
 	
-	long period = 10;
+	long period = 200;
 	gtthread_init(period);
 
 	struct gtthread_t test1;
 
-	gtthread_create(&test1, testPrint, 0);
-	gtthread_create(&test1, testPrint, 0);
-	gtthread_create(&test1, testPrint, 0);
+	gtthread_create(&test1, testPrint, NULL);
+	gtthread_create(&test1, testPrint, NULL);
+	gtthread_create(&test1, testPrint, NULL);
 
 	gtthread_print_all();
 
+	while(1);
 	// TODO
 
 
