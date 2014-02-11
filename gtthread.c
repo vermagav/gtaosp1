@@ -57,6 +57,8 @@ TAILQ_HEAD(, gtthread_t) queue_head;
 gtthread_t *main_thread;
 ucontext_t *main_context;
 bool initialized = false;
+
+// Change this to false to disable debug messages
 const bool DEBUG_MESSAGES = true;
 
 
