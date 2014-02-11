@@ -10,9 +10,9 @@
 #include <ucontext.h>
 
 
-/**********************************
- * A single thread's data structure
- **********************************/
+/***********************************
+ * A single thread's data structures
+ ***********************************/
 
 
 typedef struct gtthread_t {
@@ -33,14 +33,18 @@ typedef struct gtthread_t {
 	TAILQ_ENTRY(gtthread_t) entries;
 } gtthread_t;
 
+typedef struct gtthread_mutex_t {
+	int parent_tid;
+	long lock;
+} gtthread_mutex_t;
+
+
 
 /*******************************************
  * Global variables used throughout gtthread
  *******************************************/
 
 
-// Timeslice for each thread's execution
-long gtthread_period = -1;
 // Maintain a global thread count
 int gtthread_count = 0;
 // Used for assigning new thread IDs, this never decrements
@@ -74,14 +78,13 @@ void gtthread_print_all() {
 }
 
 // We need a wrapper function to store return value
-void* gtthread_wrapper(void *start_routine(), void *arg) {
-	printf("test\n");
+void gtthread_wrapper(void *start_routine(), void *arg) {
+	printf("test\n"); // TODO remove
 	gtthread_t *thread = TAILQ_FIRST(&queue_head);
-	printf("Reached inside wrapper function for thread %d\n", thread->tid); // TODO TAILQ_REMOVE
+	printf("Reached inside wrapper function for thread %d\n", thread->tid); // TODO REMOVE
 	thread->retval = start_routine(arg);
 	printf("Wrapper start routine called!\n"); // TODO remove
 	thread->deleted = true;
-	return;
 }
 
 // Our swapping/scheduling function
@@ -102,10 +105,6 @@ void gtthread_init(long period) {
 		fatal_error("Error: gtthreads already initialized!");
 	}
 
-	printf("Reached 1\n");
-	// Set round robin cycle period
-	gtthread_period = period;
-	
 	// Declare variables for signal timer usage
 	// @Citation: Snippet taken from http://www.makelinux.net/alp/069
 	struct sigaction sa;
@@ -113,46 +112,40 @@ void gtthread_init(long period) {
 	
 	// Initialize queue
 	TAILQ_INIT(&queue_head);
-	printf("Reached 2\n");
 
-	// Since gtthread_init() is called only once, create the parent main_thread
-	printf("Reached 3\n");
-	// Allocate memory for thread and populate it
-	main_thread = (gtthread_t*)malloc(sizeof(gtthread_t));
-	ucontext_t new_context;
-	main_thread->context = &new_context;
-	main_thread->tid = gtthread_id++;
-	main_thread->deleted = false;
+	// Allocate memory for a new main thread and populate it
+	gtthread_t *temp_thread = (gtthread_t*)malloc(sizeof(gtthread_t));
+	temp_thread->tid = gtthread_id++;
+	temp_thread->deleted = false;
 	gtthread_count++;
-	printf("Reached 4\n");
+
 	// Create context for this thread of specified size
-	if(getcontext(main_thread->context) == -1) {
+	ucontext_t new_context;
+	temp_thread->context = &new_context;
+	temp_thread->context->uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
+	temp_thread->context->uc_stack.ss_size = CONTEXT_STACK_SIZE;
+	temp_thread->context->uc_stack.ss_flags = 0;
+	temp_thread->context->uc_link = NULL;
+	if(getcontext(temp_thread->context) == -1) {
 		fatal_error("Error: getcontext() failed while initializing!");
 	}
-	printf("Reached 5\n");
-	main_thread->context->uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
-	main_thread->context->uc_stack.ss_size = CONTEXT_STACK_SIZE;
-	main_thread->context->uc_stack.ss_flags = 0;
-	main_thread->context->uc_link = NULL;
-	printf("Reached 6\n");
+
 	// Insert main thread to queue, main thread has id 0
-	TAILQ_INSERT_TAIL(&queue_head, main_thread, entries);
+	TAILQ_INSERT_TAIL(&queue_head, temp_thread, entries);
 
 	// Install the gtthread_next() function for the signal as its action
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = gtthread_next;
 	sigaction(SIGVTALRM, &sa, NULL);
-	printf("Reached 7\n");
 	timer.it_value.tv_sec = 0;
 	timer.it_value.tv_usec = period;
 	timer.it_interval.tv_sec = 0;
 	timer.it_interval.tv_usec = period;
-
 	setitimer(ITIMER_VIRTUAL, &timer, NULL);
-	printf("Reached 8\n");
+	
 	// All done!
 	initialized = true;
-	printf("gtthread initialized\n"); // TODO: remove
+	printf("gtthread initialized!\n"); // TODO: remove
 }
 
 int gtthread_create(gtthread_t *thread, void *(*start_routine)(void *), void *arg) {
@@ -171,15 +164,13 @@ int gtthread_create(gtthread_t *thread, void *(*start_routine)(void *), void *ar
 	// Create context for this thread of specified size
 	ucontext_t new_context;
 	thread->context = &new_context;
-
-	if(getcontext(thread->context) == -1) {
-		fatal_error("Error: getcontext() failed while creating thread!");
-	}
-
 	thread->context->uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
 	thread->context->uc_stack.ss_size = CONTEXT_STACK_SIZE;
 	thread->context->uc_stack.ss_flags = 0;
 	thread->context->uc_link = main_context;
+	if(getcontext(thread->context) == -1) {
+		fatal_error("Error: getcontext() failed while creating thread!");
+	}
 
 	// Initialize the context for this thread
 	makecontext(thread->context, (void(*)(void)) gtthread_wrapper, 2, thread->start_routine, thread->arg);
@@ -203,4 +194,55 @@ void gtthread_exit(void *retval) {
 	TAILQ_REMOVE(&queue_head, thread, entries);
 	free(thread);
 	gtthread_count--;
+}
+
+int gtthread_yield(void) {
+	gtthread_next();
+}
+
+int gtthread_equal(gtthread_t t1, gtthread_t t2) {
+	if(t1.tid == t2.tid) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+int gtthread_mutex_init(gtthread_mutex_t *mutex) {
+	if(mutex->lock == 1) {
+		return -1;
+	}
+	// Set lock to 0 and parent to -1 as per man page
+	mutex->lock = 0;
+	mutex->parent_tid = -1;
+	return 0;
+}
+
+int gtthread_mutex_lock(gtthread_mutex_t *mutex) {
+	gtthread_t *thread = TAILQ_FIRST(&queue_head);
+	if(mutex->parent_tid == thread->tid) {
+		return -1;
+	}
+	
+	// Spinlock, keep yielding till lock is acquired with correct parent
+	while(mutex->lock !=0 && mutex->parent_tid != thread->tid) {
+		gtthread_yield();
+	}
+	
+	// Houston, we have a lock
+	mutex->lock = 1;
+	mutex->parent_tid = thread->tid;
+	return 0;
+}
+
+int gtthread_mutex_unlock(gtthread_mutex_t *mutex) {
+	gtthread_t *thread = TAILQ_FIRST(&queue_head);
+	if(mutex->lock == 1 && mutex->parent_tid == thread->tid) {
+		// Set lock to 0 and parent to -1 as per man page
+		mutex->lock = 0;
+		mutex->parent_tid = -1;
+		return 0;
+	} else {
+		return -1;
+	}
 }

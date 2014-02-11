@@ -1,25 +1,24 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "gtthread.h"
 
-void *testPrint() {
-	printf("Hello from the thread!\n");
+void *thr1(void *in) {
+    printf("Hello World!\n");
+    fflush(stdout);
+    return NULL;
 }
 
 int main(int argc, char **argv) {
-	
-	long period = 200;
-	gtthread_init(period);
+    gtthread_t t1;
 
-	struct gtthread_t test1;
-
-	gtthread_create(&test1, testPrint, NULL);
-	gtthread_create(&test1, testPrint, NULL);
-	gtthread_create(&test1, testPrint, NULL);
+    gtthread_init(200);
+    gtthread_create(&t1, thr1, NULL);
+    gtthread_create(&t1, thr1, NULL);
+    gtthread_create(&t1, thr1, NULL);
 
 	gtthread_print_all();
 
-	while(1);
-	// TODO
+    while(1);
 
-
-	return 0;
+    return EXIT_SUCCESS;
 }
