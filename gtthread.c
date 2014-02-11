@@ -39,7 +39,6 @@ typedef struct gtthread_mutex_t {
 } gtthread_mutex_t;
 
 
-
 /*******************************************
  * Global variables used throughout gtthread
  *******************************************/
@@ -58,6 +57,7 @@ TAILQ_HEAD(, gtthread_t) queue_head;
 gtthread_t *main_thread;
 ucontext_t *main_context;
 bool initialized = false;
+const bool DEBUG_MESSAGES = true;
 
 
 /***********************************
@@ -67,24 +67,27 @@ bool initialized = false;
 
 // This is a debugging function
 void gtthread_print_all() {
-    gtthread_t *thread;
-    TAILQ_FOREACH(thread, &queue_head, entries) {
-        printf("Thread found with id: %d", thread->tid);
-        if(thread->tid == 0) {
-        	printf(" (main_thread)");
-        }
-        printf("\n");
-    }
+    if(DEBUG_MESSAGES) {
+	    gtthread_t *thread;
+	    TAILQ_FOREACH(thread, &queue_head, entries) {
+	        printf("Thread found with id: %d", thread->tid);
+	        if(thread->tid == 0) {
+	        	printf(" (main_thread)");
+	        }
+	        printf("\n");
+	    }
+	}
 }
 
 // We need a wrapper function to store return value
 void gtthread_wrapper(void *start_routine(), void *arg) {
-	printf("test\n"); // TODO remove
 	gtthread_t *thread = TAILQ_FIRST(&queue_head);
-	printf("Reached inside wrapper function for thread %d\n", thread->tid); // TODO REMOVE
 	thread->retval = start_routine(arg);
-	printf("Wrapper start routine called!\n"); // TODO remove
 	thread->deleted = true;
+
+	if(DEBUG_MESSAGES) {
+		printf("Reached inside wrapper function for thread %d\n", thread->tid);
+	}
 }
 
 // Our swapping/scheduling function
@@ -97,7 +100,11 @@ void gtthread_next() {
 	// Move the head to the tail of the queue
 	TAILQ_REMOVE(&queue_head, head_thread, entries);
 	TAILQ_INSERT_TAIL(&queue_head, head_thread, entries);
-	//printf("Swapped thread id %d with %d\n", head_thread->tid, next->tid); // TODO remove
+	if(DEBUG_MESSAGES) {
+		// The following is very spammy, but demonstrates round-robin scheduling
+		// of threads very well. Uncomment to enable:
+		//printf("Swapped thread id %d with %d\n", head_thread->tid, next->tid);
+	}
 }
 
 void gtthread_init(long period) {
@@ -145,7 +152,9 @@ void gtthread_init(long period) {
 	
 	// All done!
 	initialized = true;
-	printf("gtthread initialized!\n"); // TODO: remove
+	if(DEBUG_MESSAGES) {
+		printf("gtthread initialized!\n");
+	}
 }
 
 int gtthread_create(gtthread_t *thread, void *(*start_routine)(void *), void *arg) {
@@ -174,7 +183,9 @@ int gtthread_create(gtthread_t *thread, void *(*start_routine)(void *), void *ar
 
 	// Initialize the context for this thread
 	makecontext(thread->context, (void(*)(void)) gtthread_wrapper, 2, thread->start_routine, thread->arg);
-	printf("makecontext() line reached for thread %d\n", thread->tid); // TODO remove
+	if(DEBUG_MESSAGES) {
+		printf("makecontext() line reached for thread %d\n", thread->tid);
+	}
 	// Add thread to queue
 	TAILQ_INSERT_TAIL(&queue_head, thread, entries);
 

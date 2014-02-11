@@ -1,4 +1,5 @@
-gtaosp1
-=======
+CS 6210: Advanced Operating Systems
+===================================
 
-GT AOS P1
+Project 1: User-level thread library similar to pthreads in functionality.
+
