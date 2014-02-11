@@ -22,6 +22,8 @@ typedef struct gtthread_t {
 	void *arg;
 	void *retval;
 
+	bool deleted;
+
 	// Context for this thread, used while switching
 	ucontext_t *context;
 
@@ -42,7 +44,7 @@ int gtthread_count = 0;
 // Used for assigning new thread IDs, this never decrements
 int gtthread_id = 0;
 // Stack size of 8 KB for each context
-const int CONTEXT_MAX = 8192;
+const int CONTEXT_STACK_SIZE = 8192;
 // The head of the queue that holds our threads
 // @Citation: Usage of TAILQ inspired from http://blog.jasonish.org/2006/08/tailq-example.html
 TAILQ_HEAD(, gtthread_t) queue_head;
@@ -62,18 +64,19 @@ bool initialized = false;
 void gtthread_print_all() {
     gtthread_t *thread;
     TAILQ_FOREACH(thread, &queue_head, entries) {
-        printf("Thread found with id: %d\n", thread->tid);
-        thread->start_routine(thread->arg);
+        printf("Thread found with id: %d", thread->tid);
+        if(thread->tid == 0) {
+        	printf(" (main_thread)");
+        }
+        printf("\n");
     }
 }
 
-static void gtthread_wrapper(void *start_routine(), void *arg)
-{
+// We need a wrapper function to store return value
+static void gtthread_wrapper(void *start_routine(), void *arg) {
 	gtthread_t *thread = TAILQ_FIRST(&queue_head);
-	thread->retval = start_routine(arg);	
-	// When do we cancel this thread?
-	//gtthread_cancel(thread->tid);
-	setcontext(&main_context);
+	thread->retval = start_routine(arg);
+	thread->deleted = true;	
 	return;
 }
 
@@ -88,10 +91,9 @@ void gtthread_init(long period) {
 	// Initialize queue
 	TAILQ_INIT(&queue_head);
 
-	char stack_size[CONTEXT_MAX];
-	if (getcontext(&main_context) == 0) {
-		main_context.uc_stack.ss_sp = malloc(sizeof(stack_size));
-		main_context.uc_stack.ss_size = CONTEXT_MAX;
+	if(getcontext(&main_context) == 0) {
+		main_context.uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
+		main_context.uc_stack.ss_size = CONTEXT_STACK_SIZE;
 		main_context.uc_stack.ss_flags = 0;
 		main_context.uc_link = NULL;
 	}
@@ -102,6 +104,7 @@ void gtthread_init(long period) {
 	main_thread = (gtthread_t*)malloc(sizeof(gtthread_t));
 	getcontext(&main_thread->context);
 	main_thread->tid = gtthread_id++;
+	main_thread->deleted = false;
 	gtthread_count++;
 
 	// Create context for this thread of specified size
@@ -110,10 +113,15 @@ void gtthread_init(long period) {
 		fatal_error("Error: getcontext() failed while initializing!");
 	}
 
-	main_thread->context->uc_stack.ss_sp = malloc(sizeof(stack_size));
-	main_thread->context->uc_stack.ss_size = CONTEXT_MAX;
+	main_thread->context->uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
+	main_thread->context->uc_stack.ss_size = CONTEXT_STACK_SIZE;
+	main_thread->context->uc_stack.ss_flags = 0;
 	main_thread->context->uc_link = &main_context;
-	// TODO: should main_context be in thread queue, or is it exempt?
+
+	// Insert main thread to queue, main thread has id 0
+	TAILQ_INSERT_TAIL(&queue_head, main_thread, entries);
+
+	//makecontext(&mainthread->context, (void(*)(void)) gtthread_wrapper_main, 0);
 
 	initialized = true;
 	printf("gtthread initialized\n"); // TODO: remove
@@ -129,37 +137,30 @@ int gtthread_create(gtthread_t *thread, void *(*start_routine)(void *), void *ar
 	thread->start_routine = start_routine;
 	thread->arg = &arg;
 	thread->tid = gtthread_id++;
+	thread->deleted = false;
 	gtthread_count++;
-
-	printf("Reached point 1 for thread id %d\n", thread->tid);
 
 	// Create context for this thread of specified size
 	ucontext_t new_context;
 	thread->context = &new_context;
 
-	printf("Reached point 2 for thread id %d\n", thread->tid);
-
 	if(getcontext(&thread->context) == -1) {
 		fatal_error("Error: getcontext() failed while creating thread!");
 	}
 
-	printf("Reached point 3 for thread id %d\n", thread->tid);
-
-	char stack_size[CONTEXT_MAX];
-	thread->context->uc_stack.ss_sp = malloc(sizeof(stack_size));
-	thread->context->uc_stack.ss_size = CONTEXT_MAX;
+	thread->context->uc_stack.ss_sp = malloc(CONTEXT_STACK_SIZE);
+	thread->context->uc_stack.ss_size = CONTEXT_STACK_SIZE;
 	thread->context->uc_stack.ss_flags = 0;
 	thread->context->uc_link = &main_context;
 
-	printf("Reached point 4 for thread id %d\n", thread->tid);
-
 	// Initialize the context for this thread
 	makecontext(thread->context, (void(*)(void)) gtthread_wrapper, 2, start_routine, arg);
-	
-	printf("Reached point 5 for thread id %d\n", thread->tid);
 
 	// Add thread to queue
 	TAILQ_INSERT_TAIL(&queue_head, thread, entries);
+
+	//swapcontext(thread->context, &main_context); // TODO fix
+
 	// Return 0 on success as per pthread man page
 	return 0;
 }
